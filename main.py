@@ -85,7 +85,7 @@ class GsCoreAdapter(Star):
                 )
 
     @filter.event_message_type(EventMessageType.ALL)
-    async def on_all_message(self, event: AstrMessageEvent):
+    async def on_all_message(self, event: AstrMessageEvent, *args, **kwargs):
         if self.is_connect is False:
             await self.connect()
 
