@@ -32,6 +32,14 @@ from .models import MessageReceive, MessageSend
 gsconnecting = False
 
 
+def extract_base64_payload(value: str) -> str | None:
+    if value.startswith("base64://"):
+        return value[9:]
+    if value.startswith("data:image") and "base64," in value:
+        return value.split("base64,", 1)[1]
+    return None
+
+
 @register(
     "astrbot_plugin_gscore_adapter",
     "KimigaiiWuyi",
@@ -131,17 +139,33 @@ class GsCoreAdapter(Star):
                             )
                         )
                     else:
-                        if not os.path.exists(img_path):
-                            img_path = Path(__file__).parent / img_path
-                            async with aiofiles.open(img_path, "rb") as f:
-                                img_data = await f.read()
-                            base64_data = b64encode(img_data).decode("utf-8")
+                        base64_payload = extract_base64_payload(img_path)
+                        if base64_payload is not None:
                             message.append(
                                 GsMessage(
                                     type="image",
-                                    data=f"base64://{base64_data}",
+                                    data=f"base64://{base64_payload}",
                                 )
                             )
+                            continue
+
+                        image_path = Path(img_path)
+                        if not image_path.exists():
+                            relative_path = Path(__file__).parent / img_path
+                            if relative_path.exists():
+                                image_path = relative_path
+                            else:
+                                logger.warning(f"图片文件不存在: {img_path}")
+                                continue
+                        async with aiofiles.open(image_path, "rb") as f:
+                            img_data = await f.read()
+                        base64_data = b64encode(img_data).decode("utf-8")
+                        message.append(
+                            GsMessage(
+                                type="image",
+                                data=f"base64://{base64_data}",
+                            )
+                        )
             elif isinstance(msg, File):
                 if msg.file_:
                     file_val = await file_to_base64(Path(msg.file_))
